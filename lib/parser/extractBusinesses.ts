@@ -15,6 +15,37 @@ function stripFilenames(text: string): string {
   return text.replace(FILENAME_RE, " ").replace(/\s+/g, " ").trim();
 }
 
+// Some emoji (4-byte UTF-8 sequences, lead byte 0xF0) were mis-decoded
+// byte-by-byte as Latin-1 somewhere upstream, showing up as "ð" followed by
+// 1-3 stray Latin-1 supplement characters (e.g. "ð\x9f¥°"). "ð" as a lead
+// byte never occurs in real Korean/English ad text, so it's safe to strip.
+// Markdown-style backslash-escaping ("\!", "\~", "\#") from the source
+// extraction is unescaped too.
+function cleanText(text: string): string {
+  return text
+    // Google Drive's auto-generated image label list, not real content
+    .replace(/Image labels?:\s*\\?\[[^\]]*\\?\]/gi, "")
+    .replace(/ð[-¿]{1,3}/g, "")
+    .replace(/\\([!~#.\-[\]()>*_])/g, "$1")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+const STREET_SUFFIX =
+  "(?:Blvd|Boulevard|St|Street|Ave|Avenue|Dr|Drive|Rd|Road|Ct|Court|Way|Pkwy|Parkway|Ln|Lane|Cir|Circle|Hwy|Highway|Ste|Suite|Pl|Place)";
+const ADDRESS_RE = new RegExp(
+  `\\d{2,6}\\s+[A-Za-z0-9.'\\s]{2,40}\\b${STREET_SUFFIX}\\b[A-Za-z0-9.,#\\s]{0,40}`,
+  "i"
+);
+
+function guessAddress(text: string): string | undefined {
+  const match = text.match(ADDRESS_RE);
+  if (!match) return undefined;
+  const cleaned = match[0].replace(/\s+/g, " ").trim();
+  return cleaned.length > 60 ? cleaned.slice(0, 60) : cleaned;
+}
+
 const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   "부동산": ["부동산", "리얼티", "realty", "매물", "렌트", "lease", "for lease", "for sale", "콘도", "오픈하우스", "open house"],
   "이사": ["이사", "moving", "용달", "포장이사"],
@@ -83,9 +114,18 @@ function excerptOf(text: string): string {
   return flat.length > 140 ? flat.slice(0, 140) + "…" : flat;
 }
 
-/** Normalized key used to detect the same ad/message posted multiple times. */
+/**
+ * Normalized key used to detect the "same" ad/message posted multiple
+ * times — including reposts of the same campaign with a tweaked price or
+ * date. Digits/punctuation are stripped so those edits don't create a new
+ * group, and only the opening ~50 characters are compared.
+ */
 function dedupeKey(text: string): string {
-  return text.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 200);
+  return text
+    .replace(/[\d\W_]+/g, " ")
+    .trim()
+    .toLowerCase()
+    .slice(0, 50);
 }
 
 const PROMO_HINTS = [
@@ -117,9 +157,10 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
   const businessByPhone = new Map<string, Business>();
   // per business: dedupeKey -> mention accumulator
   const mentionGroups = new Map<string, Map<string, Mention & { authorIds: Set<string> }>>();
+  const postCounts = new Map<string, { chat: number; photo: number }>();
 
   for (const signal of signals) {
-    const text = stripFilenames(signal.text);
+    const text = cleanText(stripFilenames(signal.text));
     if (!text) continue;
 
     const phones = text.match(PHONE_RE);
@@ -142,7 +183,10 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
         name: guessedName,
         category: guessCategory(text),
         phone: phones[0].trim(),
+        address: guessAddress(text),
         mentionCount: 0,
+        totalPostCount: 0,
+        postCountBySource: { chat: 0, photo: 0 },
         firstMentionDate: signal.date,
         lastMentionDate: signal.date,
         trustScore: 0,
@@ -150,7 +194,12 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
       };
       businessByPhone.set(phone, business);
       mentionGroups.set(phone, new Map());
+      postCounts.set(phone, { chat: 0, photo: 0 });
+    } else if (!business.address) {
+      business.address = guessAddress(text);
     }
+
+    postCounts.get(phone)![signal.source] += 1;
 
     const groups = mentionGroups.get(phone)!;
     const key = dedupeKey(text);
@@ -198,6 +247,9 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
       business.mentionIds.push(mention.id);
     }
     business.mentionCount = business.mentionIds.length;
+    const counts = postCounts.get(phone)!;
+    business.postCountBySource = counts;
+    business.totalPostCount = counts.chat + counts.photo;
   }
 
   const now = Date.now();
@@ -205,7 +257,7 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
     const ageMonths =
       (now - new Date(business.lastMentionDate).getTime()) / (1000 * 60 * 60 * 24 * 30);
     const recencyFactor = Math.max(0, 1 - ageMonths / 36);
-    const countFactor = Math.min(1, business.mentionCount / 10);
+    const countFactor = Math.min(1, business.totalPostCount / 10);
     business.trustScore = Math.round((0.6 * recencyFactor + 0.4 * countFactor) * 100);
   }
 
