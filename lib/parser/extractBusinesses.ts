@@ -4,6 +4,17 @@ import type { Business, Category, Mention, MentionSource, SeedData } from "@/lib
 
 const PHONE_RE = /(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})|(01[016789][-.\s]?\d{3,4}[-.\s]?\d{4})/g;
 
+// KakaoTalk photo message bodies are just long hex filenames (the image
+// hash), e.g. "1dd2f46e...998daa.jpg" — these can accidentally contain a
+// run of digits that looks like a phone number, and are never real ad
+// content, so strip them before any extraction logic runs.
+const FILENAME_RE = /\b[0-9a-f]{12,}\.(jpe?g|png|gif|heic|heif|mp4|mov|webp)\b/gi;
+const HEX_HASH_RE = /^[0-9a-f]{12,}$/i;
+
+function stripFilenames(text: string): string {
+  return text.replace(FILENAME_RE, " ").replace(/\s+/g, " ").trim();
+}
+
 const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   "부동산": ["부동산", "리얼티", "realty", "매물", "렌트", "lease", "for lease", "for sale", "콘도", "오픈하우스", "open house"],
   "이사": ["이사", "moving", "용달", "포장이사"],
@@ -61,6 +72,7 @@ function guessBusinessName(text: string): string {
     PHONE_RE.lastIndex = 0;
     if (GENERIC_LINE_RE.test(l)) return false;
     if (isMostlySymbols(l)) return false;
+    if (HEX_HASH_RE.test(l.replace(/\s/g, ""))) return false;
     return true;
   });
   return candidate ?? lines[0]?.slice(0, 30) ?? "이름 미상 업체";
@@ -107,22 +119,28 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
   const mentionGroups = new Map<string, Map<string, Mention & { authorIds: Set<string> }>>();
 
   for (const signal of signals) {
-    const phones = signal.text.match(PHONE_RE);
+    const text = stripFilenames(signal.text);
+    if (!text) continue;
+
+    const phones = text.match(PHONE_RE);
     if (!phones || phones.length === 0) continue;
 
-    const hasPromoHint = PROMO_HINTS.some((h) => signal.text.includes(h));
-    if (signal.text.length < 15) continue;
-    if (!hasPromoHint && signal.text.length < 40) continue;
+    const hasPromoHint = PROMO_HINTS.some((h) => text.includes(h));
+    if (text.length < 15) continue;
+    if (!hasPromoHint && text.length < 40) continue;
 
     const phone = normalizePhone(phones[0]);
     if (phone.length < 9) continue;
+
+    const guessedName = guessBusinessName(text);
+    if (HEX_HASH_RE.test(guessedName.replace(/\s/g, ""))) continue;
 
     let business = businessByPhone.get(phone);
     if (!business) {
       business = {
         id: `biz_${phone}`,
-        name: guessBusinessName(signal.text),
-        category: guessCategory(signal.text),
+        name: guessedName,
+        category: guessCategory(text),
         phone: phones[0].trim(),
         mentionCount: 0,
         firstMentionDate: signal.date,
@@ -135,7 +153,7 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
     }
 
     const groups = mentionGroups.get(phone)!;
-    const key = dedupeKey(signal.text);
+    const key = dedupeKey(text);
     const authorId =
       signal.source === "chat"
         ? anonymizeSender(signal.authorLabel, salt)
@@ -156,8 +174,8 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
         authorId,
         authorIds: new Set([authorId]),
         date: signal.date,
-        excerpt: excerptOf(signal.text),
-        sentiment: /강추|추천|잘해요|친절|만족/.test(signal.text) ? "positive" : "neutral",
+        excerpt: excerptOf(text),
+        sentiment: /강추|추천|잘해요|친절|만족/.test(text) ? "positive" : "neutral",
         sourcePhone: phone,
         source: signal.source,
         repostCount: 1,
