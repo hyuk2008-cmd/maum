@@ -93,13 +93,6 @@ export default async function BusinessPage({
               key={m.id}
               className="bg-white border border-neutral-200 rounded-lg overflow-hidden"
             >
-              {m.imageId && (
-                <DriveImage
-                  fileId={m.imageId}
-                  alt={business.name}
-                  className="w-full max-h-64 object-cover"
-                />
-              )}
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm text-neutral-800 whitespace-pre-line">
