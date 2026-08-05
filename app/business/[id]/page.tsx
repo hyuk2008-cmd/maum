@@ -11,8 +11,6 @@ import { scoreToStars, starGlyphs } from "@/lib/stars";
 import ReviewSection from "@/components/ReviewSection";
 import DriveImage from "@/components/DriveImage";
 
-const MAX_MENTIONS_SHOWN = 4;
-
 export function generateStaticParams() {
   return getBusinesses().map((b) => ({ id: b.id }));
 }
@@ -26,9 +24,13 @@ export default async function BusinessPage({
   const business = getBusiness(id);
   if (!business) notFound();
 
-  const mentions = getMentionsFor(business.id)
-    .sort((a, b) => b.repostCount - a.repostCount)
-    .slice(0, MAX_MENTIONS_SHOWN);
+  // Most posts about a business are the same campaign reworded, so show
+  // only the single most complete write-up — the aggregate post count
+  // above already covers "how many times this was posted".
+  const allMentions = getMentionsFor(business.id);
+  const bestMention = [...allMentions].sort(
+    (a, b) => b.excerpt.length - a.excerpt.length
+  )[0];
   const heroImageId = getBusinessImageId(business.id);
 
   return (
@@ -85,38 +87,32 @@ export default async function BusinessPage({
         </div>
       </section>
 
-      <section>
-        <h2 className="font-semibold mb-3">업체 소개</h2>
-        <ul className="space-y-3">
-          {mentions.map((m) => (
-            <li
-              key={m.id}
-              className="bg-white border border-neutral-200 rounded-lg overflow-hidden"
-            >
-              <div className="p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm text-neutral-800 whitespace-pre-line">
-                    {m.excerpt}
-                  </p>
-                  <span className="shrink-0 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-full px-2 py-1">
-                    {m.source === "photo" ? "📷 전단지" : "💬 단톡방"}
-                    {m.repostCount > 1 ? ` · ${m.repostCount}회 게시` : ""}
-                  </span>
-                </div>
-                <p className="text-xs text-neutral-400 mt-2">
-                  {recencyLabel(m.date)} · {m.authorId}
+      {bestMention && (
+        <section>
+          <h2 className="font-semibold mb-3">업체 소개</h2>
+          <div className="bg-white border border-neutral-200 rounded-lg overflow-hidden">
+            <div className="p-4">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm text-neutral-800 whitespace-pre-line">
+                  {bestMention.excerpt}
                 </p>
+                <span className="shrink-0 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-full px-2 py-1">
+                  {bestMention.source === "photo" ? "📷 전단지" : "💬 단톡방"}
+                </span>
               </div>
-            </li>
-          ))}
-        </ul>
-        {business.mentionCount > MAX_MENTIONS_SHOWN && (
-          <p className="text-xs text-neutral-400 mt-2">
-            비슷한 내용의 게시물 {business.mentionCount - MAX_MENTIONS_SHOWN}건은
-            요약에 포함되어 생략했어요.
-          </p>
-        )}
-      </section>
+              <p className="text-xs text-neutral-400 mt-2">
+                {recencyLabel(bestMention.date)} · {bestMention.authorId}
+              </p>
+            </div>
+          </div>
+          {allMentions.length > 1 && (
+            <p className="text-xs text-neutral-400 mt-2">
+              비슷한 내용으로 {allMentions.length - 1}건 더 게시되어, 가장 자세한
+              글 하나만 보여드려요. (위쪽 &ldquo;총 게시·언급&rdquo; 수치에는 모두 포함돼요)
+            </p>
+          )}
+        </section>
+      )}
 
       <ReviewSection businessId={business.id} />
     </main>
