@@ -21,6 +21,11 @@ export function getCategories(): string[] {
   return Array.from(new Set(data.businesses.map((b) => b.category)));
 }
 
+/** First available flyer photo for a business, if any mention has one. */
+export function getBusinessImageId(businessId: string): string | undefined {
+  return getMentionsFor(businessId).find((m) => m.imageId)?.imageId;
+}
+
 export function recencyLabel(dateIso: string): string {
   const months =
     (Date.now() - new Date(dateIso).getTime()) / (1000 * 60 * 60 * 24 * 30);
