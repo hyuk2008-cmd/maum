@@ -25,16 +25,24 @@ LA 한인 커뮤니티 단톡방에 수년간 쌓인 업체 추천을 검색 가
 - **웹 UI** — 업체 검색/카테고리 필터 홈(`app/page.tsx`)과 업체
   상세페이지(`app/business/[id]/page.tsx`)에서 신뢰도, 최근 언급 시점,
   커뮤니티 언급 근거(발췌)를 확인할 수 있습니다.
+- **중복 게시 통합** — 같은 광고/추천 메시지가 여러 번 반복 게시된 경우
+  하나의 언급으로 합치고 "N회 게시" 배지로 표시합니다
+  (`lib/parser/extractBusinesses.ts`의 `dedupeKey`).
+- **전단지 사진 반영** — 단톡방에 올라온 업체 전단지 이미지도 (Google
+  Drive의 이미지 OCR/설명 텍스트를 통해) 같은 파이프라인으로 처리해
+  "📷 전단지" 출처로 구분 표시합니다.
 
-현재 `data/seed.json`은 실제 카톡 대화 아카이브 일부를 위 파이프라인으로
-처리해 만든 **익명화된 파생 데이터**입니다. 원본 대화 파일은 절대
-리포지토리에 커밋하지 않습니다 (`.gitignore` 참고).
+현재 `data/seed.json`은 실제 카톡 대화 아카이브 + 전단지 이미지 일부를
+위 파이프라인으로 처리해 만든 **익명화된 파생 데이터**입니다. 원본
+대화/이미지 파일은 절대 리포지토리에 커밋하지 않습니다 (`.gitignore` 참고).
 
 ## 대화 파일 처리하기
 
 ```bash
 # ANONYMIZE_SALT는 커밋하지 않는 비밀값으로 지정하세요
-ANONYMIZE_SALT="$(openssl rand -hex 16)" npx tsx scripts/parse-kakao.ts /path/to/KakaoTalkChats.txt
+# photos.json은 선택 사항: [{ id, title, text, createdTime }][] 형태의
+# OCR/설명 텍스트 배열 (전단지 사진을 함께 반영하고 싶을 때)
+ANONYMIZE_SALT="$(openssl rand -hex 16)" npx tsx scripts/build-seed.ts /path/to/KakaoTalkChats.txt [/path/to/photos.json]
 ```
 
 `data/seed.json`이 새로 생성됩니다.

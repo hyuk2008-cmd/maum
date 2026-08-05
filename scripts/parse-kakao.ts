@@ -7,7 +7,7 @@
  */
 import { readFileSync, writeFileSync } from "fs";
 import { parseKakaoExport } from "../lib/parser/kakaoParser";
-import { extractBusinesses } from "../lib/parser/extractBusinesses";
+import { extractBusinesses, messagesToSignals } from "../lib/parser/extractBusinesses";
 
 const inputPath = process.argv[2];
 if (!inputPath) {
@@ -18,7 +18,7 @@ if (!inputPath) {
 const salt = process.env.ANONYMIZE_SALT ?? "dev-only-salt-change-me";
 const raw = readFileSync(inputPath, "utf-8");
 const messages = parseKakaoExport(raw);
-const seed = extractBusinesses(messages, salt);
+const seed = extractBusinesses(messagesToSignals(messages), salt);
 
 writeFileSync("data/seed.json", JSON.stringify(seed, null, 2));
 

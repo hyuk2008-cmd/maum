@@ -12,16 +12,21 @@ export type Category =
   | "여행/레저"
   | "기타";
 
+export type MentionSource = "chat" | "photo";
+
 export interface Mention {
   id: string;
   businessId: string;
   /** anonymized author id, e.g. "member_3f2a" — never a real name */
   authorId: string;
-  date: string; // ISO date
+  date: string; // ISO date of the most recent occurrence
   /** short excerpt of the original message, PII-stripped */
   excerpt: string;
   sentiment: "positive" | "neutral" | "negative";
   sourcePhone?: string;
+  source: MentionSource;
+  /** how many times this same message/flyer was posted (dedup count) */
+  repostCount: number;
 }
 
 export interface Business {
