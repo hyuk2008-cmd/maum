@@ -7,9 +7,11 @@ import {
   getMentionsFor,
   recencyLabel,
 } from "@/lib/data";
-import { scoreToStars, starGlyphs } from "@/lib/stars";
 import ReviewSection from "@/components/ReviewSection";
 import DriveImage from "@/components/DriveImage";
+import BusinessInfoHeader from "@/components/BusinessInfoHeader";
+import BusinessActions from "@/components/BusinessActions";
+import BusinessOwnerPanel from "@/components/BusinessOwnerPanel";
 
 export function generateStaticParams() {
   return getBusinesses().map((b) => ({ id: b.id }));
@@ -47,44 +49,18 @@ export default async function BusinessPage({
             className="w-full max-h-72 object-cover border-b border-neutral-100"
           />
         )}
-        <div className="p-5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium text-neutral-500">{business.category}</p>
-              <h1 className="text-xl font-bold mt-0.5">{business.name}</h1>
-            </div>
-            <span
-              title={`신뢰도 ${business.trustScore}/100`}
-              className="shrink-0 text-amber-500 text-lg tracking-tight"
-            >
-              {starGlyphs(scoreToStars(business.trustScore))}
-            </span>
-          </div>
-
-          <dl className="mt-4 space-y-1.5 text-sm">
-            {business.phone && (
-              <div className="flex items-center gap-2 text-neutral-700">
-                <span aria-hidden>📞</span>
-                <dd>{business.phone}</dd>
-              </div>
-            )}
-            {business.address && (
-              <div className="flex items-center gap-2 text-neutral-700">
-                <span aria-hidden>📍</span>
-                <dd>{business.address}</dd>
-              </div>
-            )}
-          </dl>
-
-          <p className="text-sm text-neutral-500 mt-4 pt-4 border-t border-neutral-100">
-            단톡방/전단지에서 총{" "}
-            <span className="font-semibold text-neutral-800">
-              {business.totalPostCount}회
-            </span>{" "}
-            게시·언급됨 (💬 단톡방 {business.postCountBySource.chat}회 · 📷 전단지{" "}
-            {business.postCountBySource.photo}회) · {recencyLabel(business.lastMentionDate)}
-          </p>
+        <BusinessInfoHeader business={business} />
+        <div className="px-5">
+          <BusinessActions business={business} />
         </div>
+        <p className="text-sm text-neutral-500 mt-4 px-5 pb-5 pt-4 border-t border-neutral-100">
+          단톡방/전단지에서 총{" "}
+          <span className="font-semibold text-neutral-800">
+            {business.totalPostCount}회
+          </span>{" "}
+          게시·언급됨 (💬 단톡방 {business.postCountBySource.chat}회 · 📷 전단지{" "}
+          {business.postCountBySource.photo}회) · {recencyLabel(business.lastMentionDate)}
+        </p>
       </section>
 
       {bestMention && (
@@ -115,6 +91,8 @@ export default async function BusinessPage({
       )}
 
       <ReviewSection businessId={business.id} />
+
+      <BusinessOwnerPanel business={business} />
     </main>
   );
 }
