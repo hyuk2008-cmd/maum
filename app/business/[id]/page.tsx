@@ -47,9 +47,15 @@ export default async function BusinessPage({
               key={m.id}
               className="bg-white border border-neutral-200 rounded-lg p-4"
             >
-              <p className="text-sm text-neutral-800 whitespace-pre-line">
-                {m.excerpt}
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm text-neutral-800 whitespace-pre-line">
+                  {m.excerpt}
+                </p>
+                <span className="shrink-0 text-xs font-medium bg-neutral-100 text-neutral-600 rounded-full px-2 py-1">
+                  {m.source === "photo" ? "📷 전단지" : "💬 단톡방"}
+                  {m.repostCount > 1 ? ` · ${m.repostCount}회 게시` : ""}
+                </span>
+              </div>
               <p className="text-xs text-neutral-400 mt-2">
                 {recencyLabel(m.date)} · {m.authorId}
               </p>

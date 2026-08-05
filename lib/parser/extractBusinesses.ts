@@ -1,6 +1,6 @@
 import type { RawMessage } from "./kakaoParser";
 import { anonymizeSender } from "./anonymize";
-import type { Business, Category, Mention, SeedData } from "@/lib/types";
+import type { Business, Category, Mention, MentionSource, SeedData } from "@/lib/types";
 
 const PHONE_RE = /(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})|(01[016789][-.\s]?\d{3,4}[-.\s]?\d{4})/g;
 
@@ -18,6 +18,15 @@ const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   "여행/레저": ["여행", "온천", "hot spring", "리조트", "투어"],
   "기타": [],
 };
+
+/** A single piece of raw text to consider for business/mention extraction. */
+export interface Signal {
+  text: string;
+  date: string; // ISO
+  /** display name (chat) or a stable per-upload label (photo) — anonymized before storage */
+  authorLabel: string;
+  source: MentionSource;
+}
 
 function normalizePhone(raw: string): string {
   return raw.replace(/[^\d]/g, "");
@@ -46,8 +55,6 @@ function guessBusinessName(text: string): string {
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean);
-  // prefer a short line (likely a business/brand name) near the top that
-  // isn't a greeting, isn't the phone number, and isn't mostly emoji/symbols
   const candidate = lines.find((l) => {
     if (l.length < 2 || l.length > 30) return false;
     if (PHONE_RE.test(l)) return false;
@@ -64,32 +71,48 @@ function excerptOf(text: string): string {
   return flat.length > 140 ? flat.slice(0, 140) + "…" : flat;
 }
 
+/** Normalized key used to detect the same ad/message posted multiple times. */
+function dedupeKey(text: string): string {
+  return text.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 200);
+}
+
 const PROMO_HINTS = [
   "문의", "예약", "상담", "할인", "이벤트", "call", "text", "카톡",
   "추천", "강추", "잘해요", "친절", "만족", "가성비",
 ];
 
-/**
- * Rule-based extraction of business listings + community mentions from
- * parsed KakaoTalk messages. This is intentionally conservative: a message
- * is only treated as a business signal when it contains a phone number,
- * since phone number is the most reliable de-duplication key across years
- * of reposts.
- *
- * `salt` anonymizes sender identity — pass a secret not committed to the
- * repo when processing real chat exports.
- */
-export function extractBusinesses(messages: RawMessage[], salt: string): SeedData {
-  const businessByPhone = new Map<string, Business>();
-  const mentions: Mention[] = [];
+export function messagesToSignals(messages: RawMessage[]): Signal[] {
+  return messages.map((m) => ({
+    text: m.text,
+    date: m.date,
+    authorLabel: m.sender,
+    source: "chat" as const,
+  }));
+}
 
-  for (const msg of messages) {
-    const phones = msg.text.match(PHONE_RE);
+/**
+ * Rule-based extraction of business listings + community mentions from a
+ * list of text signals (chat messages and/or OCR'd flyer photos). A signal
+ * is only treated as a business mention when it contains a phone number,
+ * since phone number is the most reliable de-duplication key across years
+ * of reposts. Identical reposts of the same message are collapsed into a
+ * single Mention with a `repostCount`.
+ *
+ * `salt` anonymizes chat sender identity — pass a secret not committed to
+ * the repo when processing real chat exports.
+ */
+export function extractBusinesses(signals: Signal[], salt: string): SeedData {
+  const businessByPhone = new Map<string, Business>();
+  // per business: dedupeKey -> mention accumulator
+  const mentionGroups = new Map<string, Map<string, Mention & { authorIds: Set<string> }>>();
+
+  for (const signal of signals) {
+    const phones = signal.text.match(PHONE_RE);
     if (!phones || phones.length === 0) continue;
 
-    const hasPromoHint = PROMO_HINTS.some((h) => msg.text.includes(h));
-    if (msg.text.length < 15) continue; // too short to be a real listing
-    if (!hasPromoHint && msg.text.length < 40) continue;
+    const hasPromoHint = PROMO_HINTS.some((h) => signal.text.includes(h));
+    if (signal.text.length < 15) continue;
+    if (!hasPromoHint && signal.text.length < 40) continue;
 
     const phone = normalizePhone(phones[0]);
     if (phone.length < 9) continue;
@@ -98,41 +121,72 @@ export function extractBusinesses(messages: RawMessage[], salt: string): SeedDat
     if (!business) {
       business = {
         id: `biz_${phone}`,
-        name: guessBusinessName(msg.text),
-        category: guessCategory(msg.text),
+        name: guessBusinessName(signal.text),
+        category: guessCategory(signal.text),
         phone: phones[0].trim(),
         mentionCount: 0,
-        firstMentionDate: msg.date,
-        lastMentionDate: msg.date,
+        firstMentionDate: signal.date,
+        lastMentionDate: signal.date,
         trustScore: 0,
         mentionIds: [],
       };
       businessByPhone.set(phone, business);
+      mentionGroups.set(phone, new Map());
     }
 
-    const mentionId = `men_${phone}_${mentions.length}`;
-    const mention: Mention = {
-      id: mentionId,
-      businessId: business.id,
-      authorId: anonymizeSender(msg.sender, salt),
-      date: msg.date,
-      excerpt: excerptOf(msg.text),
-      sentiment: /강추|추천|잘해요|친절|만족/.test(msg.text) ? "positive" : "neutral",
-      sourcePhone: phone,
-    };
-    mentions.push(mention);
+    const groups = mentionGroups.get(phone)!;
+    const key = dedupeKey(signal.text);
+    const authorId =
+      signal.source === "chat"
+        ? anonymizeSender(signal.authorLabel, salt)
+        : `photo_${anonymizeSender(signal.authorLabel, salt).slice(-8)}`;
 
-    business.mentionCount += 1;
-    business.mentionIds.push(mentionId);
-    if (msg.date < business.firstMentionDate) business.firstMentionDate = msg.date;
-    if (msg.date > business.lastMentionDate) business.lastMentionDate = msg.date;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.repostCount += 1;
+      existing.authorIds.add(authorId);
+      if (signal.date > existing.date) existing.date = signal.date;
+      if (signal.date < existing.date) {
+        // keep the earliest excerpt's date out of firstMentionDate tracking below
+      }
+    } else {
+      groups.set(key, {
+        id: `men_${phone}_${groups.size}`,
+        businessId: business.id,
+        authorId,
+        authorIds: new Set([authorId]),
+        date: signal.date,
+        excerpt: excerptOf(signal.text),
+        sentiment: /강추|추천|잘해요|친절|만족/.test(signal.text) ? "positive" : "neutral",
+        sourcePhone: phone,
+        source: signal.source,
+        repostCount: 1,
+      });
+    }
+
+    if (signal.date < business.firstMentionDate) business.firstMentionDate = signal.date;
+    if (signal.date > business.lastMentionDate) business.lastMentionDate = signal.date;
+  }
+
+  const mentions: Mention[] = [];
+  for (const [phone, groups] of mentionGroups) {
+    const business = businessByPhone.get(phone)!;
+    for (const g of groups.values()) {
+      const { authorIds, ...mention } = g;
+      // if multiple distinct people posted the same text, note it in authorId
+      mention.authorId =
+        authorIds.size > 1 ? `${mention.authorId} 외 ${authorIds.size - 1}명` : mention.authorId;
+      mentions.push(mention);
+      business.mentionIds.push(mention.id);
+    }
+    business.mentionCount = business.mentionIds.length;
   }
 
   const now = Date.now();
   for (const business of businessByPhone.values()) {
     const ageMonths =
       (now - new Date(business.lastMentionDate).getTime()) / (1000 * 60 * 60 * 24 * 30);
-    const recencyFactor = Math.max(0, 1 - ageMonths / 36); // decays to 0 over 3 years
+    const recencyFactor = Math.max(0, 1 - ageMonths / 36);
     const countFactor = Math.min(1, business.mentionCount / 10);
     business.trustScore = Math.round((0.6 * recencyFactor + 0.4 * countFactor) * 100);
   }
