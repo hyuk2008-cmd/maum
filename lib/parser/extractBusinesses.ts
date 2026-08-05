@@ -46,6 +46,22 @@ function guessAddress(text: string): string | undefined {
   return cleaned.length > 60 ? cleaned.slice(0, 60) : cleaned;
 }
 
+const KAKAO_ID_RE =
+  /(?:카카오톡|카톡)\s*(?:아이디|id|ID)?\s*[:：]\s*([A-Za-z0-9._-]{3,20})/;
+
+const KAKAO_ID_STOPWORDS = new Set([
+  "id", "or", "and", "the", "to", "is", "채널", "문의", "상담", "가능",
+]);
+
+function guessKakaoId(text: string): string | undefined {
+  const match = text.match(KAKAO_ID_RE);
+  if (!match) return undefined;
+  const id = match[1].trim();
+  // avoid capturing stray filler words that slip past the id charset
+  if (KAKAO_ID_STOPWORDS.has(id.toLowerCase())) return undefined;
+  return id;
+}
+
 const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   "부동산": ["부동산", "리얼티", "realty", "매물", "렌트", "lease", "for lease", "for sale", "콘도", "오픈하우스", "open house"],
   "이사": ["이사", "moving", "용달", "포장이사"],
@@ -186,6 +202,7 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
         name: guessedName,
         category: guessCategory(text),
         phone: phones[0].trim(),
+        kakaoId: guessKakaoId(text),
         address: guessAddress(text),
         mentionCount: 0,
         totalPostCount: 0,
@@ -198,8 +215,9 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
       businessByPhone.set(phone, business);
       mentionGroups.set(phone, new Map());
       postCounts.set(phone, { chat: 0, photo: 0 });
-    } else if (!business.address) {
-      business.address = guessAddress(text);
+    } else {
+      if (!business.address) business.address = guessAddress(text);
+      if (!business.kakaoId) business.kakaoId = guessKakaoId(text);
     }
 
     postCounts.get(phone)![signal.source] += 1;

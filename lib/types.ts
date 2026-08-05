@@ -36,6 +36,8 @@ export interface Business {
   name: string;
   category: Category;
   phone?: string;
+  /** KakaoTalk ID/채널 posted as a contact method, when no phone number was given */
+  kakaoId?: string;
   address?: string;
   /** number of distinct (deduped) mention groups */
   mentionCount: number;
@@ -97,4 +99,36 @@ export interface Listing {
   status: TradeStatus;
   createdAt: string; // ISO
   updatedAt: string; // ISO
+}
+
+export type ClaimStatus = "대기" | "승인" | "거절";
+
+/**
+ * A request from someone claiming to be a business's owner/representative,
+ * asking for edit rights to that one listing. The site owner reviews and
+ * approves manually — approval mints an `ownerCode` that's relayed to the
+ * claimant out-of-band (e.g. KakaoTalk), who then enters it on the
+ * business page to unlock editing. This is a concept-level permission
+ * model for a no-backend app, not real authentication.
+ */
+export interface Claim {
+  id: string;
+  businessId: string;
+  claimantName: string;
+  contact: string; // phone or KakaoTalk ID
+  note: string;
+  status: ClaimStatus;
+  ownerCode?: string; // set once approved
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Owner-submitted edits to a business's listing — layered over the static seed data. */
+export interface BusinessOverride {
+  name?: string;
+  phone?: string;
+  kakaoId?: string;
+  address?: string;
+  category?: Category;
+  updatedAt: string;
 }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-05T10:58:08.874Z",
+  "generatedAt": "2026-08-05T12:21:05.609Z",
   "businesses": [
     {
       "id": "biz_7149440048",
@@ -28,6 +28,7 @@
       "name": "✨안녕하세요! 1Stop Auto 자동차 전문가 리오입",
       "category": "부동산",
       "phone": "(714) 476-8835",
+      "kakaoId": "mhy8697",
       "address": "24 months 24 months 3500 drive off 10k",
       "mentionCount": 3,
       "totalPostCount": 14,
@@ -69,6 +70,7 @@
       "name": "나와 가족을 위한 미래 준비, 왜 필요할까요? 삶은 계",
       "category": "금융/보험/융자",
       "phone": "714-215-2677",
+      "kakaoId": "ellakim2677",
       "address": "6767 Katella Ave, Cypress CA 90630 Covered California",
       "mentionCount": 8,
       "totalPostCount": 16,
@@ -242,27 +244,6 @@
       ]
     },
     {
-      "id": "biz_9492350368",
-      "name": "차량관련 전차종 구매 리스 렌탈 수리 등록 모두 모두 ",
-      "category": "기타",
-      "phone": "9492350368",
-      "mentionCount": 4,
-      "totalPostCount": 17,
-      "postCountBySource": {
-        "chat": 17,
-        "photo": 0
-      },
-      "firstMentionDate": "2026-01-14T12:36:00",
-      "lastMentionDate": "2026-02-15T11:51:00",
-      "trustScore": 91,
-      "mentionIds": [
-        "men_9492350368_0",
-        "men_9492350368_1",
-        "men_9492350368_2",
-        "men_9492350368_3"
-      ]
-    },
-    {
       "id": "biz_5625169184",
       "name": "블라인드 방충망 설치 및 철거와 오랫동안 싸인 먼지 청",
       "category": "기타",
@@ -279,6 +260,27 @@
       "mentionIds": [
         "men_5625169184_0",
         "men_5625169184_1"
+      ]
+    },
+    {
+      "id": "biz_9492350368",
+      "name": "차량관련 전차종 구매 리스 렌탈 수리 등록 모두 모두 ",
+      "category": "기타",
+      "phone": "9492350368",
+      "mentionCount": 4,
+      "totalPostCount": 17,
+      "postCountBySource": {
+        "chat": 17,
+        "photo": 0
+      },
+      "firstMentionDate": "2026-01-14T12:36:00",
+      "lastMentionDate": "2026-02-15T11:51:00",
+      "trustScore": 90,
+      "mentionIds": [
+        "men_9492350368_0",
+        "men_9492350368_1",
+        "men_9492350368_2",
+        "men_9492350368_3"
       ]
     },
     {
@@ -1044,6 +1046,7 @@
       "name": "안녕하세요, T-Mobile 대리점 Kevin Bae입",
       "category": "기타",
       "phone": "213-263-1887",
+      "kakaoId": "sunycell",
       "mentionCount": 1,
       "totalPostCount": 5,
       "postCountBySource": {
@@ -1760,6 +1763,7 @@
       "name": "K MOVING LA LA/OC / Irvine 소형이",
       "category": "이사",
       "phone": "213-500-6105",
+      "kakaoId": "Kmovingla",
       "mentionCount": 1,
       "totalPostCount": 1,
       "postCountBySource": {
@@ -2990,6 +2994,7 @@
       "name": "안녕하세요~ ^^ SK Trip US캠핑투어 입니다 아",
       "category": "여행/레저",
       "phone": "213-500-4565",
+      "kakaoId": "free5333",
       "mentionCount": 1,
       "totalPostCount": 1,
       "postCountBySource": {
@@ -3317,6 +3322,7 @@
       "name": "주식/코인 투자, 손익비를 알면 누구나 수익 가능 전화",
       "category": "기타",
       "phone": "213-599-7359",
+      "kakaoId": "tujac",
       "mentionCount": 1,
       "totalPostCount": 1,
       "postCountBySource": {
