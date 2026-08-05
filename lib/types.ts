@@ -27,6 +27,8 @@ export interface Mention {
   source: MentionSource;
   /** how many times this same message/flyer was posted (dedup count) */
   repostCount: number;
+  /** Google Drive file id of the source flyer photo, when source is "photo" */
+  imageId?: string;
 }
 
 export interface Business {
@@ -60,4 +62,39 @@ export interface Review {
   rating: number; // 1-5
   body: string;
   createdAt: string; // ISO
+}
+
+/**
+ * A 개인거래 (peer-to-peer) listing's safe-trade workflow stage. This is a
+ * *concept model* only — no real money moves through this app yet. Once a
+ * payment gateway (e.g. 토스페이먼츠) is integrated, "결제대기" would be the
+ * point where the buyer's payment is actually captured and held.
+ */
+export type TradeStatus =
+  | "판매중"
+  | "구매요청됨"
+  | "결제대기"
+  | "수령확인대기"
+  | "정산완료"
+  | "거래취소";
+
+export const TRADE_STATUS_ORDER: TradeStatus[] = [
+  "판매중",
+  "구매요청됨",
+  "결제대기",
+  "수령확인대기",
+  "정산완료",
+];
+
+/** Locally-stored 개인거래 listing — not part of the seed dataset. */
+export interface Listing {
+  id: string;
+  title: string;
+  price: number;
+  category: Category;
+  description: string;
+  sellerName: string;
+  status: TradeStatus;
+  createdAt: string; // ISO
+  updatedAt: string; // ISO
 }

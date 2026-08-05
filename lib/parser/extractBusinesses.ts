@@ -68,6 +68,8 @@ export interface Signal {
   /** display name (chat) or a stable per-upload label (photo) — anonymized before storage */
   authorLabel: string;
   source: MentionSource;
+  /** Google Drive file id, when source is "photo" — not personal data, safe to keep as-is */
+  imageId?: string;
 }
 
 function normalizePhone(raw: string): string {
@@ -110,8 +112,9 @@ function guessBusinessName(text: string): string {
 }
 
 function excerptOf(text: string): string {
-  const flat = text.replace(/\n+/g, " ").trim();
-  return flat.length > 140 ? flat.slice(0, 140) + "…" : flat;
+  // Show the full cleaned text (collapsing runs of blank lines) rather than
+  // truncating — users asked to see the whole post, not a snippet.
+  return text.replace(/\n{2,}/g, "\n").trim();
 }
 
 /**
@@ -213,9 +216,7 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
       existing.repostCount += 1;
       existing.authorIds.add(authorId);
       if (signal.date > existing.date) existing.date = signal.date;
-      if (signal.date < existing.date) {
-        // keep the earliest excerpt's date out of firstMentionDate tracking below
-      }
+      if (!existing.imageId && signal.imageId) existing.imageId = signal.imageId;
     } else {
       groups.set(key, {
         id: `men_${phone}_${groups.size}`,
@@ -228,6 +229,7 @@ export function extractBusinesses(signals: Signal[], salt: string): SeedData {
         sourcePhone: phone,
         source: signal.source,
         repostCount: 1,
+        imageId: signal.imageId,
       });
     }
 
