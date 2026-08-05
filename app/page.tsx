@@ -21,12 +21,20 @@ export default function HomePage() {
 
   return (
     <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8">
-      <header className="mb-8">
-        <h1 className="text-2xl font-bold">마음 커넥트</h1>
-        <p className="text-neutral-600 mt-1">
-          LA 한인 커뮤니티 단톡방에서 수년간 쌓인 추천을 검색 가능한 업체
-          디렉토리로 정리했습니다.
-        </p>
+      <header className="mb-8 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">마음 커넥트</h1>
+          <p className="text-neutral-600 mt-1">
+            LA 한인 커뮤니티 단톡방에서 수년간 쌓인 추천을 검색 가능한 업체
+            디렉토리로 정리했습니다.
+          </p>
+        </div>
+        <Link
+          href="/marketplace"
+          className="shrink-0 text-sm font-medium border border-neutral-300 rounded-lg px-4 py-2 bg-white hover:border-neutral-400"
+        >
+          🛒 개인거래
+        </Link>
       </header>
 
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
