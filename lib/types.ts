@@ -35,7 +35,11 @@ export interface Business {
   category: Category;
   phone?: string;
   address?: string;
+  /** number of distinct (deduped) mention groups */
   mentionCount: number;
+  /** total raw posts/reposts across all mention groups */
+  totalPostCount: number;
+  postCountBySource: { chat: number; photo: number };
   firstMentionDate: string;
   lastMentionDate: string;
   trustScore: number; // 0-100, weighted by recency + mention count
@@ -46,4 +50,14 @@ export interface SeedData {
   generatedAt: string;
   businesses: Business[];
   mentions: Mention[];
+}
+
+/** Locally-stored user review — not part of the seed dataset. */
+export interface Review {
+  id: string;
+  businessId: string;
+  authorName: string;
+  rating: number; // 1-5
+  body: string;
+  createdAt: string; // ISO
 }

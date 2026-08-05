@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { getBusinesses, getCategories, recencyLabel } from "@/lib/data";
+import { scoreToStars, starGlyphs } from "@/lib/stars";
 
 export default function HomePage() {
   const businesses = getBusinesses();
@@ -76,13 +77,16 @@ export default function HomePage() {
                 <h2 className="font-semibold text-neutral-900 line-clamp-2">
                   {b.name}
                 </h2>
-                <span className="shrink-0 text-xs font-medium bg-neutral-100 text-neutral-700 rounded-full px-2 py-1">
-                  신뢰도 {b.trustScore}
+                <span
+                  title={`신뢰도 ${b.trustScore}/100`}
+                  className="shrink-0 text-amber-500 text-sm"
+                >
+                  {starGlyphs(scoreToStars(b.trustScore))}
                 </span>
               </div>
               <p className="text-xs text-neutral-500 mt-1">{b.category}</p>
               <p className="text-xs text-neutral-500 mt-2">
-                단톡방 {b.mentionCount}회 언급 · {recencyLabel(b.lastMentionDate)}
+                총 {b.totalPostCount}회 게시·언급 · {recencyLabel(b.lastMentionDate)}
               </p>
             </Link>
           </li>
