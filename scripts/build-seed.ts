@@ -38,6 +38,7 @@ if (photosPath) {
       date: p.createdTime || new Date().toISOString(),
       authorLabel: p.id, // no real identity attached to a flyer photo
       source: "photo",
+      imageId: p.id,
     });
   }
   console.log(`loaded ${photos.length} photo records`);

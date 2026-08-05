@@ -27,6 +27,8 @@ export interface Mention {
   source: MentionSource;
   /** how many times this same message/flyer was posted (dedup count) */
   repostCount: number;
+  /** Google Drive file id of the source flyer photo, when source is "photo" */
+  imageId?: string;
 }
 
 export interface Business {
