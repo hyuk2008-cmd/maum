@@ -1,11 +1,61 @@
-<div align="center">
+# 마음 커넥트 (Ma-eum Connect)
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+LA 한인 커뮤니티 단톡방에 수년간 쌓인 업체 추천을 검색 가능한 신뢰 기반
+업체 디렉토리로 정리하는 웹 포탈입니다.
 
-  <h1>Built with AI Studio</h2>
+## 왜
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+한인 이민사회 단톡방에는 "이 업체 믿고 다녀도 돼요" 식의 실사용 후기와
+추천이 수년간 쌓여있지만, 그 정보는 대화방 안에 파묻혀 있어 매번 다시
+물어봐야 합니다. 이 프로젝트는 그 대화 아카이브를 구조화된 데이터로
+변환해, 검색·열람 가능한 업체 디렉토리로 만듭니다.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+## 현재 구현된 것 (MVP)
 
-</div>
+- **KakaoTalk 대화 파서** (`lib/parser/kakaoParser.ts`) — 카카오톡
+  "대화 내보내기" `.txt` 포맷을 파싱해 날짜/발신자/본문으로 구조화합니다.
+  줄바꿈이 포함된 멀티라인 메시지도 처리합니다.
+- **업체 추출 파이프라인** (`lib/parser/extractBusinesses.ts`) — 룰 기반
+  휴리스틱으로 전화번호가 포함된 홍보/추천성 메시지를 찾아 전화번호를
+  기준으로 동일 업체 언급을 클러스터링하고, 카테고리를 키워드로 분류하며,
+  최근성 + 언급 횟수 기반 신뢰도 점수(`trustScore`)를 계산합니다.
+- **발신자 익명화** (`lib/parser/anonymize.ts`) — 실명은 절대 저장하지
+  않고, salt를 사용한 단방향 해시로 `member_xxxxxxxx` 형태의 가명 ID만
+  남깁니다.
+- **웹 UI** — 업체 검색/카테고리 필터 홈(`app/page.tsx`)과 업체
+  상세페이지(`app/business/[id]/page.tsx`)에서 신뢰도, 최근 언급 시점,
+  커뮤니티 언급 근거(발췌)를 확인할 수 있습니다.
+
+현재 `data/seed.json`은 실제 카톡 대화 아카이브 일부를 위 파이프라인으로
+처리해 만든 **익명화된 파생 데이터**입니다. 원본 대화 파일은 절대
+리포지토리에 커밋하지 않습니다 (`.gitignore` 참고).
+
+## 대화 파일 처리하기
+
+```bash
+# ANONYMIZE_SALT는 커밋하지 않는 비밀값으로 지정하세요
+ANONYMIZE_SALT="$(openssl rand -hex 16)" npx tsx scripts/parse-kakao.ts /path/to/KakaoTalkChats.txt
+```
+
+`data/seed.json`이 새로 생성됩니다.
+
+## 알려진 한계 (다음 단계)
+
+- **업체명/카테고리 추출은 현재 룰 기반**입니다. 인사말 등을 걸러내는
+  휴리스틱을 적용했지만, 정확도를 높이려면 LLM 기반 추출(업체명, 주소,
+  추천/비추천 판단, 중복 업체명 정규화)로 교체가 필요합니다.
+- **DB 미연동**: 지금은 정적 JSON 시드 데이터를 사용합니다. 다음
+  단계는 PostgreSQL(Supabase 권장) 연동, 사용자 인증, 리뷰/댓글 작성,
+  사업자 클레임(claim) 플로우입니다.
+- **이미지(전단지) 미처리**: 카톡방에 올라온 업체 전단지/광고 이미지는
+  아직 파이프라인에 포함되지 않았습니다. OCR/비전 모델로 텍스트를
+  추출해 같은 파이프라인에 합류시킬 수 있습니다.
+
+## 개발
+
+```bash
+npm install
+npm run dev
+```
+
+Next.js (App Router) + TypeScript + Tailwind CSS로 구성되어 있습니다.
