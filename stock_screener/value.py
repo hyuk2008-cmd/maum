@@ -20,6 +20,7 @@ class ValueParams:
     max_debt_equity: float = 100.0   # 부채/자기자본 <= 100% (Yahoo는 % 단위)
     min_current_ratio: float = 1.2   # 유동비율 >= 1.2
     top_n: int = 10
+    max_per_sector: int = 2      # 한 업종(예: 은행)이 목록을 독식하지 않도록 업종당 최대 종목 수
 
 
 def _has_data(d: dict) -> bool:
@@ -107,8 +108,11 @@ def value_screen(f: pd.DataFrame, p: ValueParams = ValueParams()) -> pd.DataFram
     g["value_score"] = (0.30 * r(g.trailingPE, False) + 0.25 * r(g.priceToBook, False)   # 낮을수록 좋음
                         + 0.25 * r(g.returnOnEquity) + 0.10 * r(g.net_cash.fillna(-1))
                         + 0.10 * r(g.debtToEquity.fillna(0), False))
-    cols = ["shortName", "trailingPE", "priceToBook", "returnOnEquity", "debtToEquity", "currentRatio", "net_cash", "value_score"]
-    return g.sort_values("value_score", ascending=False).head(p.top_n)[cols]
+    cols = ["shortName", "sector", "trailingPE", "priceToBook", "returnOnEquity", "debtToEquity", "currentRatio", "net_cash", "value_score"]
+    g = g.sort_values("value_score", ascending=False)
+    sec = g["sector"].fillna("")                       # 업종 정보가 없는 종목은 제한하지 않음
+    rank_in_sector = g.groupby(sec.where(sec != "", pd.Series(g.index, index=g.index))).cumcount()
+    return g[rank_in_sector < p.max_per_sector].head(p.top_n)[cols]
 
 
 def synthetic_fundamentals(tickers: list[str], seed: int = 3) -> pd.DataFrame:
