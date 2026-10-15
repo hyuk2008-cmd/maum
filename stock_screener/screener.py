@@ -59,6 +59,11 @@ def main() -> None:
     ap.add_argument("--no-value", action="store_true", help="저평가 우량주 선별 생략")
     ap.add_argument("--demo", action="store_true")
     a = ap.parse_args()
+    try:
+        import subprocess
+        print("코드 버전:", subprocess.check_output(["git", "rev-parse", "--short", "HEAD"], text=True, stderr=subprocess.DEVNULL).strip())
+    except Exception:
+        pass
     p = Params(top_n=a.top, min_turnover=a.min_turnover, use_regime=not a.no_regime, start_capital=a.start_capital)
 
     if a.demo:
