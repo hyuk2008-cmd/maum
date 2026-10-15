@@ -1,0 +1,26 @@
+# 미국 예시 유니버스 — 실사용 시 S&P500/나스닥100 등으로 확장하세요.
+AAPL
+MSFT
+NVDA
+AMZN
+GOOGL
+META
+AVGO
+TSLA
+JPM
+V
+UNH
+XOM
+LLY
+COST
+HD
+PG
+NFLX
+AMD
+CRM
+ORCL
+CAT
+GE
+BAC
+WMT
+KO
