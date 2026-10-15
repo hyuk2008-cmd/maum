@@ -1,23 +1,31 @@
-# 1개월 보유 모멘텀 스크리너
+# 한국주식 1개월 보유 모멘텀 스크리너
 
-**원리(학술적으로 가장 오래 검증된 요인 조합):** 12-1 모멘텀(Jegadeesh & Titman, 1993) + 52주 고점 근접도(George & Hwang, 2004)
-+ 저변동 선호 + 시장 추세 필터. 최근 1개월 수익률은 단기 반전 효과(Jegadeesh, 1990) 때문에 점수에서 빼고, 과열 급등주는 제외합니다.
+**원리:** 12-1 모멘텀(Jegadeesh & Titman, 1993) + 52주 고점 근접도(George & Hwang, 2004) + 저변동 선호 + 시장(KOSPI 200일선) 필터.
+최근 1개월 수익률은 단기 반전 효과(Jegadeesh, 1990) 때문에 점수에서 빼고, 과열 급등주는 제외합니다.
 
-## 실행
+## 실행 (월 1회)
 ```bash
 pip install -r requirements.txt
-python screener.py --universe universe_kr.txt --bench ^KS11 --equity 50000000 --min-turnover 5e8   # 한국
-python screener.py --universe universe_us.txt --bench ^GSPC --equity 50000 --min-turnover 2e7      # 미국
-python backtest.py --universe universe_us.txt --bench ^GSPC --cost-bps 20                         # 과거 검증
-python screener.py --demo   # 합성 데이터로 동작 확인
+python screener.py --equity 9800000     # --equity = 오늘 계좌 평가금액(원). 결과는 화면 + report.html
+python backtest.py                      # 과거 검증 (왕복 비용 약 0.35% 가정)
+python screener.py --demo               # 합성 데이터로 동작 확인
 ```
+`report.html`을 브라우저로 열면 언제든 종목·수량·손절가를 볼 수 있습니다.
+
+## 손실 관리 (원금 1,000만 원, 누적 손실 한도 25%)
+| 계좌 평가금액 | 상태 | 동작 |
+|---|---|---|
+| 880만 원 초과 | OK | 종목당 위험 1% (손절 시 약 10만 원) |
+| 750만~880만 원 | DERISK | 종목당 위험 0.5%로 축소 |
+| 750만 원 이하 | HALT | 신규 매매 중단, 규칙 점검 |
 
 ## 월간 루틴
 1. 매월 첫 거래일 장 마감 후 `screener.py` 실행 → 다음 거래일 시가 근처에서 매수
-2. 출력된 `stop`(진입가 − 2×ATR14)에 손절 주문, 21거래일 후 전량 청산 → 다시 1번
+2. `stop`(진입가 − 2×ATR14) 이탈 시 매도, 21거래일 후 남은 종목 전량 청산 → 다시 1번
 3. "현금 유지" 또는 "통과 종목 없음"이면 쉬기
 
 ## 주의
-- 수익을 보장하지 않습니다. 백테스트는 생존편향·거래비용·슬리피지로 실제보다 좋게 나옵니다.
-- 유니버스를 KOSPI200/S&P500 전체로 넓혀야 순위 선별이 의미 있습니다(예시 파일은 25종목).
+- 수익을 보장하지 않습니다. 백테스트는 생존편향·슬리피지로 실제보다 좋게 나옵니다.
+- 거래비용: 2026년 매도세 0.20%(코스피·코스닥) + 증권사 수수료 + 슬리피지. 세율은 바뀔 수 있으니 거래 전 증권사 공지로 확인하세요.
+- `universe_kr.txt`는 대형주 예시입니다. 티커가 잘못되었거나 상장폐지된 종목은 자동 제외됩니다. KOSPI200 전체로 넓히면 선별력이 좋아집니다.
 - 처음 2~3개월은 실제 돈 없이 종이 거래로 규칙을 따라 보세요.

@@ -1,6 +1,6 @@
 """워크포워드 백테스트: 매 21거래일마다 리밸런싱, 그 시점까지의 데이터만 사용.
 
-예)  python backtest.py --universe universe_us.txt --bench ^GSPC --min-turnover 2e7 --cost-bps 20
+예)  python backtest.py
      python backtest.py --demo
 """
 import argparse
@@ -47,10 +47,10 @@ def summary(df: pd.DataFrame) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--universe", default="universe_us.txt")
-    ap.add_argument("--bench", default="^GSPC")
-    ap.add_argument("--min-turnover", type=float, default=2e7)
-    ap.add_argument("--cost-bps", type=float, default=20, help="편도 거래비용(bp). 한국은 매도세 포함 편도 20~25bp 가정")
+    ap.add_argument("--universe", default="universe_kr.txt")
+    ap.add_argument("--bench", default="^KS11")
+    ap.add_argument("--min-turnover", type=float, default=5e8)
+    ap.add_argument("--cost-bps", type=float, default=18, help="편도 거래비용(bp). 한국: 매도세 0.20%(2026)+수수료+슬리피지 → 왕복 약 0.35%")
     ap.add_argument("--years", type=float, default=6)
     ap.add_argument("--demo", action="store_true")
     a = ap.parse_args()
