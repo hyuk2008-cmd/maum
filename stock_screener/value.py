@@ -105,9 +105,12 @@ def value_screen(f: pd.DataFrame, p: ValueParams = ValueParams()) -> pd.DataFram
         return g
     g["net_cash"] = (g.totalCash.fillna(0) - g.totalDebt.fillna(0)) / g.marketCap       # 시총 대비 순현금
     r = lambda s, asc=True: s.rank(pct=True, ascending=asc)
+    isfin = g["sector"].fillna("").str.contains("Financial", case=False)
+    # 금융업은 현금·부채가 영업 구조상 의미가 없어(예: 은행 예수금) 순현금/부채 점수는 중립(0.5)으로 처리한다.
+    nc = r(g.net_cash.fillna(-1)).where(~isfin, 0.5)
+    dr = r(g.debtToEquity, False).fillna(0.5).where(~isfin, 0.5)       # 부채 정보 없음도 중립
     g["value_score"] = (0.30 * r(g.trailingPE, False) + 0.25 * r(g.priceToBook, False)   # 낮을수록 좋음
-                        + 0.25 * r(g.returnOnEquity) + 0.10 * r(g.net_cash.fillna(-1))
-                        + 0.10 * r(g.debtToEquity.fillna(0), False))
+                        + 0.25 * r(g.returnOnEquity) + 0.10 * nc + 0.10 * dr)
     cols = ["shortName", "sector", "trailingPE", "priceToBook", "returnOnEquity", "debtToEquity", "currentRatio", "net_cash", "value_score"]
     g = g.sort_values("value_score", ascending=False)
     sec = g["sector"].fillna("")                       # 업종 정보가 없는 종목은 제한하지 않음
