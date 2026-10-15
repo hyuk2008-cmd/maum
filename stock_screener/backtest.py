@@ -11,6 +11,7 @@ from data import load_prices, read_universe, synthetic_prices
 
 
 def run(px: dict, bench: pd.Series, p: Params, cost_bps: float) -> pd.DataFrame:
+    bench = bench.reindex(px["close"].index).ffill()
     c, h, l, v = px["close"], px["high"], px["low"], px["volume"]
     rows = []
     for t in range(253, len(c) - p.hold_days, p.hold_days):
@@ -19,12 +20,13 @@ def run(px: dict, bench: pd.Series, p: Params, cost_bps: float) -> pd.DataFrame:
         if exit_ >= len(c):
             break
         univ_ret = (c.iloc[exit_] / c.iloc[entry] - 1).mean()   # 유니버스 동일가중(비교용)
+        bench_ret = bench.iloc[exit_] / bench.iloc[entry] - 1   # 시장지수(KOSPI) 그냥 보유
         if p.use_regime and not regime_ok(bench.iloc[sl]):
-            rows.append((c.index[t], 0.0, univ_ret, 0, "cash")); continue
+            rows.append((c.index[t], 0.0, univ_ret, bench_ret, 0, "cash")); continue
         feat = compute_features(c.iloc[sl], h.iloc[sl], l.iloc[sl], v.iloc[sl])
         picks = select(feat, p)
         if picks.empty:
-            rows.append((c.index[t], 0.0, univ_ret, 0, "none")); continue
+            rows.append((c.index[t], 0.0, univ_ret, bench_ret, 0, "none")); continue
         r = []
         for tk, row in picks.iterrows():
             stop = row.price - p.atr_mult * row.atr14
@@ -33,16 +35,23 @@ def run(px: dict, bench: pd.Series, p: Params, cost_bps: float) -> pd.DataFrame:
             hit = path[path <= stop]                             # 종가 기준 손절(보수적 단순화)
             px_out = hit.iloc[0] if len(hit) else path.iloc[-1]
             r.append(px_out / px_in - 1 - 2 * cost_bps / 1e4)
-        rows.append((c.index[t], float(np.mean(r)), univ_ret, len(r), "long"))
-    return pd.DataFrame(rows, columns=["date", "strategy", "universe_ew", "n", "state"]).set_index("date")
+        rows.append((c.index[t], float(np.mean(r)), univ_ret, bench_ret, len(r), "long"))
+    return pd.DataFrame(rows, columns=["date", "strategy", "universe_ew", "kospi", "n", "state"]).set_index("date")
 
 
 def summary(df: pd.DataFrame) -> None:
-    for col in ["strategy", "universe_ew"]:
+    for col, name in [("strategy", "전략"), ("universe_ew", "유니버스 동일가중"), ("kospi", "지수 보유")]:
         r = df[col]; eq = (1 + r).cumprod()
         dd = (eq / eq.cummax() - 1).min()
-        print(f"{col:12s} 누적 {eq.iloc[-1]-1:7.1%} | 월평균 {r.mean():6.2%} | 승률 {(r>0).mean():5.1%} | 최대낙폭(월단위) {dd:6.1%} | 월 변동성 {r.std():5.2%}")
+        sharpe = r.mean() / r.std() * np.sqrt(12) if r.std() > 0 else float("nan")
+        print(f"{name:10s} 누적 {eq.iloc[-1]-1:7.1%} | 월평균 {r.mean():6.2%} | 승률 {(r>0).mean():5.1%} | 최대낙폭 {dd:6.1%} | 샤프 {sharpe:5.2f}")
     print(f"리밸런싱 {len(df)}회, 현금/무진입 {int((df.state != 'long').sum())}회")
+    print("\n연도별 수익률(복리)            전략    유니버스      지수")
+    y = df[["strategy", "universe_ew", "kospi"]].groupby(df.index.year).apply(lambda g: (1 + g).prod() - 1)
+    for yr, row in y.iterrows():
+        print(f"  {yr}                     {row.strategy:8.1%} {row.universe_ew:9.1%} {row.kospi:9.1%}")
+    beat = (y.strategy > y.kospi).sum()
+    print(f"\n지수를 이긴 해: {beat}/{len(y)}  |  판단 기준: 샤프·최대낙폭이 지수보다 좋고, 이긴 해가 절반 이상이어야 의미가 있습니다.")
 
 
 def main() -> None:
