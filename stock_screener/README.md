@@ -3,7 +3,11 @@
 **원리:** 12-1 모멘텀(Jegadeesh & Titman, 1993) + 52주 고점 근접도(George & Hwang, 2004) + 저변동 선호 + 시장(KOSPI 200일선) 필터.
 최근 1개월 수익률은 단기 반전 효과(Jegadeesh, 1990) 때문에 점수에서 빼고, 과열 급등주는 제외합니다.
 
-## 실행 (월 1회)
+## 가장 쉬운 방법 (Windows)
+`stock_screener` 폴더의 **`run_report.bat`을 더블클릭**하면 최신 코드 받기 → 실행 → 리포트(report.html) 열기까지 자동으로 됩니다.
+투자금이 바뀌면 파일 안의 `10000000`을 현재 계좌 평가금액으로 고치세요.
+
+## 실행 (월 1회, 직접 입력)
 ```bash
 pip install -r requirements.txt
 python screener.py --equity 9800000     # --equity = 오늘 계좌 평가금액(원). 결과는 화면 + report.html
