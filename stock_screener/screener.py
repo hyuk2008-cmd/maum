@@ -76,6 +76,8 @@ def main() -> None:
             fund = synthetic_fundamentals(tks) if a.demo else fetch_fundamentals(tks)
             value = value_screen(fund)
             print(value_diagnostics(fund))
+            for e in fund.attrs.get("errors", []):
+                print("  재무 수집 오류 예시 →", e)
             print("\n[저평가 우량주 관찰 목록]"); print(value.to_string() if not value.empty else "통과 종목 없음")
         except Exception as e:
             print(f"(재무 데이터 수집 실패, 저평가 선별 생략: {e})")

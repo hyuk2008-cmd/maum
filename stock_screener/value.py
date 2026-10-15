@@ -22,27 +22,47 @@ class ValueParams:
     top_n: int = 10
 
 
+def _has_data(d: dict) -> bool:
+    return any(d.get(k) is not None for k in ("trailingPE", "priceToBook", "returnOnEquity"))
+
+
 def fetch_fundamentals(tickers: list[str], max_age_h: float = 24) -> pd.DataFrame:
-    """종목별 재무 지표를 받아 DataFrame으로 반환(하루 캐시). 수집 실패 종목은 빈 값."""
+    """종목별 재무 지표를 받아 DataFrame으로 반환. 성공한 종목만 하루 캐시하고, 실패 원인은 df.attrs['errors']에 담는다."""
     import yfinance as yf
     os.makedirs(CACHE, exist_ok=True)
     path = os.path.join(CACHE, "fundamentals.json")
     cached = {}
     if os.path.exists(path) and time.time() - os.path.getmtime(path) < max_age_h * 3600:
-        cached = json.load(open(path, encoding="utf-8"))
+        cached = {t: d for t, d in json.load(open(path, encoding="utf-8")).items() if _has_data(d)}  # 빈 캐시는 무시
+    errors, fresh = [], {}
     for t in tickers:
         if t in cached:
             continue
-        try:
-            info = yf.Ticker(t).info or {}
-        except Exception:
-            info = {}
-        cached[t] = {k: info.get(k) for k in FIELDS}
-    json.dump(cached, open(path, "w", encoding="utf-8"), ensure_ascii=False)
-    df = pd.DataFrame.from_dict({t: cached[t] for t in tickers}, orient="index")
+        info = {}
+        for attempt in range(3):                     # 요청 제한 대비 재시도
+            try:
+                info = yf.Ticker(t).info or {}
+                if info:
+                    break
+            except Exception as e:
+                if len(errors) < 3:
+                    errors.append(f"{t}: {type(e).__name__}: {str(e)[:120]}")
+            time.sleep(1.5 * (attempt + 1))
+        row = {k: info.get(k) for k in FIELDS}
+        fresh[t] = row
+        if _has_data(row):
+            cached[t] = row
+        time.sleep(0.3)                              # 요청 간격
+        if len(fresh) >= 5 and not cached and not any(_has_data(r) for r in fresh.values()):
+            errors.append("처음 5종목 모두 데이터가 비어 있어 수집을 중단했습니다(요청 제한 또는 접속 문제 가능).")
+            break
+    json.dump(cached, open(path, "w", encoding="utf-8"), ensure_ascii=False)   # 성공한 것만 저장
+    rows = {t: cached.get(t) or fresh.get(t) or {k: None for k in FIELDS} for t in tickers}
+    df = pd.DataFrame.from_dict(rows, orient="index")
     for c in FIELDS:
         if c not in ("sector", "shortName"):
             df[c] = pd.to_numeric(df[c], errors="coerce")
+    df.attrs["errors"] = errors
     return df
 
 
