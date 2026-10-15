@@ -75,3 +75,16 @@ def synthetic_fundamentals(tickers: list[str], seed: int = 3) -> pd.DataFrame:
         "operatingCashflow": rng.normal(2e9, 2e9, n), "totalCash": rng.uniform(1e9, 9e9, n),
         "totalDebt": rng.uniform(1e9, 9e9, n), "marketCap": rng.uniform(5e9, 5e10, n),
         "sector": rng.choice(["Technology", "Financial Services", "Industrials"], n)}, index=tickers)
+
+
+def value_diagnostics(f: pd.DataFrame, p: ValueParams = ValueParams()) -> str:
+    """어느 조건에서 종목이 탈락하는지(또는 데이터가 비었는지) 한 줄로 요약."""
+    n = len(f)
+    has = f[["trailingPE", "priceToBook"]].notna().all(axis=1)
+    fin = f["sector"].fillna("").str.contains("Financial", case=False)
+    c1 = has & (f.trailingPE > 0) & (f.trailingPE <= p.max_per) & (f.priceToBook > 0) & (f.priceToBook <= p.max_pbr)
+    c2 = c1 & (f.returnOnEquity >= p.min_roe)
+    c3 = c2 & (fin | ((f.debtToEquity <= p.max_debt_equity) & (f.currentRatio >= p.min_current_ratio)))
+    c4 = c3 & (fin | ((f.freeCashflow > 0) & (f.operatingCashflow > 0)))
+    return (f"재무 데이터 {int(has.sum())}/{n}종목 수집 → PER·PBR 조건 {int(c1.sum())} → ROE {int(c2.sum())} "
+            f"→ 부채·유동비율 {int(c3.sum())} → 현금흐름 {int(c4.sum())}")
