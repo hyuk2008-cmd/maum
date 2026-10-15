@@ -26,6 +26,29 @@ def _has_data(d: dict) -> bool:
     return any(d.get(k) is not None for k in ("trailingPE", "priceToBook", "returnOnEquity"))
 
 
+def _fill_per_pbr(tk, row: dict) -> None:
+    """Yahoo .info는 한국 상장종목에 trailingPE/priceToBook을 거의 항상 비워둔다(EPS·장부가 미제공).
+    시가총액은 정상 수집되므로, 재무제표(순이익/자본총계)로 직접 나눠서 보정한다."""
+    mc = row.get("marketCap")
+    if not mc:
+        return
+    try:
+        if row.get("trailingPE") is None:
+            fin = tk.financials
+            if "Net Income" in fin.index:
+                ni = fin.loc["Net Income"].iloc[0]
+                if ni and ni > 0:
+                    row["trailingPE"] = mc / ni
+        if row.get("priceToBook") is None:
+            bs = tk.balance_sheet
+            if "Stockholders Equity" in bs.index:
+                eq = bs.loc["Stockholders Equity"].iloc[0]
+                if eq and eq > 0:
+                    row["priceToBook"] = mc / eq
+    except Exception:
+        pass
+
+
 def fetch_fundamentals(tickers: list[str], max_age_h: float = 24) -> pd.DataFrame:
     """종목별 재무 지표를 받아 DataFrame으로 반환. 성공한 종목만 하루 캐시하고, 실패 원인은 df.attrs['errors']에 담는다."""
     import yfinance as yf
@@ -38,10 +61,11 @@ def fetch_fundamentals(tickers: list[str], max_age_h: float = 24) -> pd.DataFram
     for t in tickers:
         if t in cached:
             continue
+        tk = yf.Ticker(t)
         info = {}
         for attempt in range(3):                     # 요청 제한 대비 재시도
             try:
-                info = yf.Ticker(t).info or {}
+                info = tk.info or {}
                 if info:
                     break
             except Exception as e:
@@ -49,6 +73,7 @@ def fetch_fundamentals(tickers: list[str], max_age_h: float = 24) -> pd.DataFram
                     errors.append(f"{t}: {type(e).__name__}: {str(e)[:120]}")
             time.sleep(1.5 * (attempt + 1))
         row = {k: info.get(k) for k in FIELDS}
+        _fill_per_pbr(tk, row)                        # 야후가 한국 종목엔 PER/PBR을 안 채워줄 때 재무제표로 직접 계산
         fresh[t] = row
         if _has_data(row):
             cached[t] = row
